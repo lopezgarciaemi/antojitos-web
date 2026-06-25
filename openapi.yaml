@@ -1,0 +1,483 @@
+openapi: 3.0.3
+info:
+  title: Los Antojitos de Misha - API
+  description: |
+    API REST para el sistema de pedidos de comida mexicana "Los Antojitos de Misha".
+    
+    ## Características principales:
+    - **Autenticación JWT** con roles (CLIENTE, ADMIN, COCINA)
+    - **Catálogo de productos** con categorías y opciones de personalización
+    - **Carrito de compras** persistente con Zustand + localStorage
+    - **Sistema de pedidos** con validación de stock y transacciones
+    - **Gestión de inventario** con recetas (BOM) e ingredientes
+    
+    ## Flujo de usuario:
+    1. Registro/Login → obtener JWT
+    2. Navegar catálogo → agregar al carrito
+    3. Checkout → seleccionar dirección y método de pago
+    4. La cocina recibe el pedido → prepara → entrega
+  version: 1.0.0
+  contact:
+    name: Proyecto Web Avanzado
+    email: admin@antojitos.com
+
+servers:
+  - url: http://localhost:3000/api
+    description: Servidor de desarrollo
+
+tags:
+  - name: Auth
+    description: Autenticación y registro de usuarios
+  - name: Categories
+    description: Gestión de categorías del menú
+  - name: Products
+    description: Catálogo de productos
+  - name: Orders
+    description: Gestión de pedidos (Server Actions)
+
+paths:
+  # ============================================
+  # AUTENTICACIÓN
+  # ============================================
+  /auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Registrar nuevo usuario
+      description: Crea una cuenta de cliente nueva. La contraseña se hashea con bcrypt.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              name: "Juan Pérez"
+              email: "juan@example.com"
+              password: "securePassword123"
+              phone: "5512345678"
+      responses:
+        '201':
+          description: Usuario registrado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Datos inválidos o email ya registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Iniciar sesión
+      description: Autentica al usuario y retorna un JWT válido por 7 días.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: "cliente@test.com"
+              password: "cliente123"
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Credenciales inválidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================
+  # CATEGORÍAS
+  # ============================================
+  /categories:
+    get:
+      tags:
+        - Categories
+      summary: Listar todas las categorías
+      description: Retorna todas las categorías activas ordenadas por su campo `order`.
+      responses:
+        '200':
+          description: Lista de categorías
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+
+  /categories/{id}:
+    get:
+      tags:
+        - Categories
+      summary: Obtener categoría por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Categoría encontrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Category'
+        '404':
+          description: Categoría no encontrada
+
+  # ============================================
+  # PRODUCTOS
+  # ============================================
+  /products:
+    get:
+      tags:
+        - Products
+      summary: Listar productos
+      description: |
+        Retorna productos con filtros opcionales.
+        Incluye categoría, opciones de personalización y recetas (ingredientes).
+      parameters:
+        - name: categoria
+          in: query
+          description: Filtrar por ID de categoría
+          schema:
+            type: string
+        - name: disponible
+          in: query
+          description: Filtrar por disponibilidad
+          schema:
+            type: boolean
+        - name: buscar
+          in: query
+          description: Buscar por nombre o descripción
+          schema:
+            type: string
+        - name: precioMin
+          in: query
+          description: Precio mínimo
+          schema:
+            type: number
+        - name: precioMax
+          in: query
+          description: Precio máximo
+          schema:
+            type: number
+        - name: ordenar
+          in: query
+          description: Ordenar resultados
+          schema:
+            type: string
+            enum: [precio_asc, precio_desc, nombre, reciente]
+      responses:
+        '200':
+          description: Lista de productos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+  /products/{id}:
+    get:
+      tags:
+        - Products
+      summary: Obtener producto por ID
+      description: Retorna el detalle completo del producto con sus opciones de personalización.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Producto encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ProductDetail'
+        '404':
+          description: Producto no encontrado
+
+# ============================================
+# COMPONENTES
+# ============================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # Auth
+    RegisterRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          minLength: 2
+          example: "Juan Pérez"
+        email:
+          type: string
+          format: email
+          example: "juan@example.com"
+        password:
+          type: string
+          minLength: 6
+          example: "securePassword123"
+        phone:
+          type: string
+          example: "5512345678"
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              description: JWT token válido por 7 días
+            user:
+              $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [CLIENTE, ADMIN, COCINA]
+
+    # Categories
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Tacos"
+        description:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        order:
+          type: integer
+        isActive:
+          type: boolean
+        _count:
+          type: object
+          properties:
+            products:
+              type: integer
+
+    # Products
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Taco al Pastor"
+        description:
+          type: string
+          nullable: true
+        basePrice:
+          type: number
+          format: float
+          example: 25.00
+        imageUrl:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        isAvailable:
+          type: boolean
+        category:
+          $ref: '#/components/schemas/Category'
+
+    ProductDetail:
+      allOf:
+        - $ref: '#/components/schemas/Product'
+        - type: object
+          properties:
+            optionGroups:
+              type: array
+              items:
+                $ref: '#/components/schemas/OptionGroup'
+            recipes:
+              type: array
+              items:
+                $ref: '#/components/schemas/Recipe'
+
+    OptionGroup:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Tipo de Tortilla"
+        isRequired:
+          type: boolean
+        allowMultiple:
+          type: boolean
+        maxSelections:
+          type: integer
+          nullable: true
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/Option'
+
+    Option:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Tortilla de Maíz"
+        priceModifier:
+          type: number
+          format: float
+          example: 0.00
+        isDefault:
+          type: boolean
+        isAvailable:
+          type: boolean
+
+    Recipe:
+      type: object
+      description: Ingredientes que componen el producto (Bill of Materials)
+      properties:
+        id:
+          type: string
+          format: uuid
+        quantity:
+          type: number
+          format: float
+          description: Cantidad en la unidad del ingrediente
+        ingredient:
+          $ref: '#/components/schemas/Ingredient'
+
+    Ingredient:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Carne al Pastor"
+        unit:
+          type: string
+          enum: [KG, LT, PIEZA, GRAMOS, MILILITROS]
+        stock:
+          type: number
+          format: float
+        minStock:
+          type: number
+          format: float
+        cost:
+          type: number
+          format: float
+
+    # Pagination
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+        filtros:
+          type: object
+          additionalProperties: true
+
+    # Errors
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "Mensaje de error descriptivo"
+
+security:
+  - bearerAuth: []

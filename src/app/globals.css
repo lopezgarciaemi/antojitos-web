@@ -1,0 +1,209 @@
+@import "tailwindcss";
+
+/* ============================================
+   Theme "Los Antojitos" - Clean White Style
+   ============================================ */
+
+:root {
+  /* Fondos - Todo blanco */
+  --background: #FFFFFF;
+  --background-secondary: #FAFAFA;
+  --background-tertiary: #F5F5F5;
+  
+  /* Texto - Negro */
+  --foreground: #1A1A1A;
+  --foreground-muted: #4A4A4A;
+  --foreground-subtle: #6B6B6B;
+  
+  /* Acento (Naranja) */
+  --accent: #FF5500;
+  --accent-hover: #E64D00;
+  --accent-light: #FFF0E6;
+  
+  /* Bordes */
+  --border: #E5E5E5;
+  --border-hover: #D1D1D1;
+  
+  /* Estados */
+  --success: #00A67E;
+  --warning: #F5A623;
+  --error: #E53935;
+  
+  /* Sombras */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+
+/* Focus ring consistente */
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* Transiciones suaves */
+.transition-smooth {
+  transition: all 200ms ease-in-out;
+}
+
+/* Scrollbar personalizada (modo oscuro) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
+}
+
+/* ============================================
+   Componentes Base (CSS puro para compatibilidad)
+   ============================================ */
+
+/* Botón base */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  border-radius: 0.5rem;
+  transition: all 200ms ease;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: #FF5500;
+  color: white;
+}
+.btn-primary:hover {
+  background-color: #E64D00;
+}
+
+.btn-secondary {
+  border: 1px solid #E5E5E5;
+  color: #1A1A1A;
+  background-color: #FFFFFF;
+}
+.btn-secondary:hover {
+  background-color: #F5F5F5;
+}
+
+.btn-ghost {
+  color: #4A4A4A;
+}
+.btn-ghost:hover {
+  color: #1A1A1A;
+  background-color: #F5F5F5;
+}
+
+/* Input base */
+.input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--background-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  color: var(--foreground);
+  transition: all 200ms ease;
+}
+.input::placeholder {
+  color: var(--foreground-subtle);
+}
+.input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #FF5500;
+  border-color: transparent;
+}
+
+/* Card base */
+.card {
+  background-color: var(--background-secondary);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-hover:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
+}
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 9999px;
+}
+
+.badge-orange {
+  background-color: #FFF0E6;
+  color: #FF5500;
+}
+
+.badge-green {
+  background-color: #E6F7F0;
+  color: #00A67E;
+}
+
+.badge-red {
+  background-color: #FEECEC;
+  color: #E53935;
+}
+
+.badge-gray {
+  background-color: #F5F5F5;
+  color: #6B6B6B;
+}

@@ -1,0 +1,380 @@
+// Schema de Prisma para "Los Antojitos de Misha"
+// Sistema completo de gestión de pedidos de fonda mexicana
+// FASE 1: Arquitectura de Datos Avanzada
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// 1. USUARIOS Y AUTENTICACIÓN
+// ============================================
+
+enum UserRole {
+  CLIENTE
+  ADMIN
+  COCINA
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  phone     String?
+  password  String   // Hash bcrypt
+  role      UserRole @default(CLIENTE)
+  
+  // Auditoría
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  addresses Address[]
+  cart      Cart?
+  orders    Order[]
+  
+  @@map("users")
+}
+
+// ============================================
+// 2. DIRECCIONES (para domicilio) - MEJORADO
+// ============================================
+
+model Address {
+  id           String  @id @default(uuid())
+  userId       String
+  label        String  @default("Casa") // "Casa", "Trabajo", etc.
+  street       String                    // Calle
+  number       String                    // Número exterior
+  intNumber    String?                   // Número interior (opcional)
+  colony       String                    // Colonia
+  city         String  @default("CDMX")  // Ciudad
+  state        String  @default("CDMX")  // Estado
+  zipCode      String                    // Código postal
+  phone        String                    // Teléfono de contacto
+  references   String?                   // "Entre calles X y Y"
+  isDefault    Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+  
+  @@map("addresses")
+}
+
+// ============================================
+// 3. CATÁLOGO: CATEGORÍAS Y PRODUCTOS
+// ============================================
+
+model Category {
+  id          String  @id @default(uuid())
+  name        String  @unique // "Tacos", "Quesadillas", "Bebidas"
+  description String?
+  imageUrl    String?
+  order       Int     @default(0) // Para ordenar en el menú
+  isActive    Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  products Product[]
+  
+  @@map("categories")
+}
+
+model Product {
+  id          String  @id @default(uuid())
+  categoryId  String
+  name        String
+  description String?
+  basePrice   Float // Precio base sin extras
+  imageUrl    String?
+  isActive    Boolean @default(true)
+  isAvailable Boolean @default(true) // Por si se agota temporalmente
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  category     Category           @relation(fields: [categoryId], references: [id])
+  recipes      Recipe[]           // Ingredientes que usa (BOM)
+  optionGroups ProductOptionGroup[] // Grupos de opciones disponibles
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  
+  @@map("products")
+}
+
+// ============================================
+// 4. INVENTARIO: INGREDIENTES Y RECETAS (BOM)
+// ============================================
+
+enum IngredientUnit {
+  KG         // Kilogramos
+  LT         // Litros
+  PIEZA      // Piezas/unidades
+  GRAMOS     // Gramos
+  MILILITROS // Mililitros
+}
+
+model Ingredient {
+  id           String         @id @default(uuid())
+  name         String         @unique
+  unit         IngredientUnit
+  stock        Float          // Stock actual
+  minStock     Float          // Alerta cuando baja de esto
+  cost         Float          // Costo por unidad
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  recipes Recipe[]
+  
+  @@map("ingredients")
+}
+
+// Tabla intermedia: Receta (Bill of Materials)
+// Define qué ingredientes lleva cada producto y en qué cantidad
+model Recipe {
+  id           String  @id @default(uuid())
+  productId    String
+  ingredientId String
+  quantity     Float // Cantidad en la unidad del ingrediente
+  
+  // Relaciones
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  
+  @@unique([productId, ingredientId]) // Un ingrediente solo aparece 1 vez por producto
+  @@map("recipes")
+}
+
+// ============================================
+// 5. PERSONALIZACIÓN: OPCIONES Y GRUPOS
+// ============================================
+
+model OptionGroup {
+  id             String  @id @default(uuid())
+  name           String  // "Tipo de Tortilla", "Salsas", "Extras"
+  isRequired     Boolean @default(false) // ¿Obligatorio seleccionar?
+  allowMultiple  Boolean @default(false) // ¿Se pueden elegir varias?
+  maxSelections  Int?    // Si allowMultiple=true, límite de cuántas
+  order          Int     @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  options  Option[]
+  products ProductOptionGroup[]
+  
+  @@map("option_groups")
+}
+
+model Option {
+  id            String  @id @default(uuid())
+  optionGroupId String
+  name          String  // "Maíz", "Harina", "Salsa Verde", "Cilantro"
+  priceModifier Float @default(0) // +$5, +$10, etc.
+  isDefault     Boolean @default(false)
+  isAvailable   Boolean @default(true)
+  order         Int     @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  optionGroup OptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+  
+  @@map("options")
+}
+
+// Tabla intermedia: Productos y sus grupos de opciones disponibles
+model ProductOptionGroup {
+  id            String @id @default(uuid())
+  productId     String
+  optionGroupId String
+  
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  optionGroup OptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+  
+  @@unique([productId, optionGroupId])
+  @@map("product_option_groups")
+}
+
+// ============================================
+// 6. CARRITO DE COMPRAS (persistente)
+// ============================================
+
+model Cart {
+  id     String @id @default(uuid())
+  userId String @unique // 1:1 con User
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+  
+  @@map("carts")
+}
+
+model CartItem {
+  id        String @id @default(uuid())
+  cartId    String
+  productId String
+  quantity  Int    @default(1)
+  
+  // Opciones seleccionadas guardadas como JSON
+  // Ejemplo: [{ "optionGroupId": "xxx", "optionGroupName": "Tortilla", "optionId": "yyy", "optionName": "Maíz", "priceModifier": 0 }]
+  selectedOptions String? // JSON como string en SQLite
+  
+  // Precio calculado al momento de agregar (para referencia)
+  unitPrice Float
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+  
+  @@map("cart_items")
+}
+
+// ============================================
+// 7. ÓRDENES Y FLUJO DE COCINA
+// ============================================
+
+enum OrderType {
+  RECOGER   // Para llevar
+  MESA      // Comer en sitio
+  DOMICILIO // Entrega a domicilio
+}
+
+enum OrderStatus {
+  CREADA        // Orden creada, esperando pago
+  PAGADA        // Pagada, esperando preparación
+  EN_PREPARACION // Cocina trabajando
+  LISTA         // Terminada, lista para entregar
+  ENTREGADA     // Completada
+  CANCELADA     // Cancelada
+}
+
+enum PaymentMethod {
+  EFECTIVO
+  TARJETA
+  TRANSFERENCIA
+}
+
+model Order {
+  id          String        @id @default(uuid())
+  orderNumber Int           @unique // Número correlativo para mostrar
+  userId      String
+  
+  // Datos de la orden
+  type          OrderType
+  status        OrderStatus   @default(CREADA)
+  paymentMethod PaymentMethod?
+  
+  // Montos
+  subtotal      Float
+  tax           Float @default(0)
+  deliveryFee   Float @default(0)
+  discount      Float @default(0)
+  total         Float
+  
+  // Datos específicos por tipo
+  tableNumber Int?       // Si es MESA
+  addressId   String?    // Si es DOMICILIO (referencia)
+  
+  // ⭐ SNAPSHOT: Dirección congelada al momento del pedido
+  // Guardamos la dirección como texto para histórico
+  deliveryAddress String?  // JSON string con la dirección completa
+  shippingCost    Float @default(0) // Costo de envío congelado
+  
+  // Notas y observaciones
+  customerNotes String?
+  kitchenNotes  String?
+  
+  // Auditoría y tiempos
+  createdAt    DateTime  @default(now())
+  paidAt       DateTime? // Cuando se marca como PAGADA
+  preparedAt   DateTime? // Cuando pasa a EN_PREPARACION
+  readyAt      DateTime? // Cuando se marca como LISTA
+  deliveredAt  DateTime? // Cuando se marca como ENTREGADA
+  cancelledAt  DateTime?
+  updatedAt    DateTime  @updatedAt
+  
+  // Relaciones
+  user    User         @relation(fields: [userId], references: [id])
+  address Address?     @relation(fields: [addressId], references: [id])
+  items   OrderItem[]
+  history OrderHistory[]
+  
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String @id @default(uuid())
+  orderId   String
+  productId String
+  
+  // Datos congelados al momento de la orden (para histórico)
+  productName     String
+  productPrice    Float  // Precio base del producto
+  quantity        Int
+  
+  // ⭐ Opciones seleccionadas congeladas como JSON
+  // Ejemplo: [{"grupo":"Tortilla","opcion":"Maíz","precio":0},{"grupo":"Extras","opcion":"Queso","precio":10}]
+  options         String?   // JSON de opciones seleccionadas
+  
+  unitPrice       Float // Precio final con opciones
+  subtotal        Float // unitPrice * quantity
+  
+  createdAt DateTime @default(now())
+  
+  // Relaciones
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+  
+  @@map("order_items")
+}
+
+// ============================================
+// 8. HISTORIAL DE CAMBIOS DE ESTADO
+// ============================================
+
+model OrderHistory {
+  id          String      @id @default(uuid())
+  orderId     String
+  status      OrderStatus
+  notes       String?
+  changedBy   String?     // ID del usuario que hizo el cambio (opcional)
+  changedAt   DateTime    @default(now())
+  
+  // Relaciones
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@map("order_history")
+}
+
+// ============================================
+// ÍNDICES PARA OPTIMIZAR CONSULTAS
+// ============================================
+
+// Búsquedas frecuentes
+// - Productos por categoría y disponibilidad
+// - Órdenes por usuario y estado
+// - Ingredientes con stock bajo
