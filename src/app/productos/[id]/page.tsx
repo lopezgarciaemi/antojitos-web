@@ -5,12 +5,12 @@ import { useRouter, useParams } from 'next/navigation';
 import { useCartStore } from '@/store/cart';
 
 interface OptionGroup {
-  id: number;
+  id: string;
   nombre: string;
   obligatorio: boolean;
   seleccionMultiple: boolean;
   options: {
-    id: number;
+    id: string;
     nombre: string;
     precioAdicional: number;
   }[];
@@ -21,7 +21,7 @@ interface Product {
   nombre: string;
   descripcion: string;
   precioBase: number;
-  imagen: string;
+  imagen: string | null;
   disponible: boolean;
   categoria: {
     nombre: string;
@@ -39,9 +39,11 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedOptions, setSelectedOptions] = useState<Record<number, number[]>>({});
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({} as Record<string, string[]>);
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
+
+  const getSelectedIds = (groupId: string) => selectedOptions[groupId] || [];
 
   useEffect(() => {
     loadProduct();
@@ -61,7 +63,7 @@ export default function ProductDetailPage() {
     }
   };
 
-  const handleOptionSelect = (groupId: number, optionId: number, isMultiple: boolean) => {
+  const handleOptionSelect = (groupId: string, optionId: string, isMultiple: boolean) => {
     setSelectedOptions((prev) => {
       const currentGroup = prev[groupId] || [];
       
@@ -86,7 +88,7 @@ export default function ProductDetailPage() {
     
     // Sumar precios adicionales de opciones seleccionadas
     product.optionGroups.forEach((group) => {
-      const selectedIds = selectedOptions[group.id] || [];
+      const selectedIds = getSelectedIds(group.id);
       selectedIds.forEach((optId) => {
         const option = group.options.find((opt) => opt.id === optId);
         if (option && typeof option.precioAdicional === 'number') {
@@ -118,7 +120,7 @@ export default function ProductDetailPage() {
 
     // Validar opciones obligatorias
     const missingRequired = product?.optionGroups.filter(
-      (group) => group.obligatorio && (!selectedOptions[group.id] || selectedOptions[group.id].length === 0)
+      (group) => group.obligatorio && (getSelectedIds(group.id).length === 0)
     );
 
     if (missingRequired && missingRequired.length > 0) {
@@ -128,7 +130,7 @@ export default function ProductDetailPage() {
 
     // Construir opciones para el carrito
     const cartOptions = product?.optionGroups.flatMap((group) => {
-      const selectedIds = selectedOptions[group.id] || [];
+      const selectedIds = getSelectedIds(group.id);
       return selectedIds.map((optId) => {
         const option = group.options.find((opt) => opt.id === optId);
         return option ? {
@@ -144,7 +146,13 @@ export default function ProductDetailPage() {
       productId: product!.id.toString(),
       name: product!.nombre,
       price: product!.precioBase,
-      image: `/images/productos/${product!.imagen}`,
+      image: product!.imagen
+        ? product!.imagen.startsWith('http://') || product!.imagen.startsWith('https://')
+          ? product!.imagen
+          : product!.imagen.includes('.')
+            ? `/images/productos/${product!.imagen}`
+            : undefined
+        : undefined,
       quantity,
       options: cartOptions.length > 0 ? cartOptions : undefined,
       notes: notes || undefined,
@@ -200,16 +208,29 @@ export default function ProductDetailPage() {
         {/* Imagen y info básica */}
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6 shadow-sm">
           <div className="h-64 bg-gray-100 flex items-center justify-center overflow-hidden">
-            <img
-              src={`/images/productos/${product.imagen}`}
-              alt={product.nombre}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                // Fallback a emoji si no existe la imagen
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.parentElement!.innerHTML = '<span class="text-9xl">🌮</span>';
-              }}
-            />
+            {product.imagen && (product.imagen.startsWith('http://') || product.imagen.startsWith('https://')) ? (
+              <img
+                src={product.imagen}
+                alt={product.nombre}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.parentElement!.innerHTML = '<span class="text-9xl">🌮</span>';
+                }}
+              />
+            ) : product.imagen && product.imagen.includes('.') ? (
+              <img
+                src={`/images/productos/${product.imagen}`}
+                alt={product.nombre}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.parentElement!.innerHTML = '<span class="text-9xl">🌮</span>';
+                }}
+              />
+            ) : (
+              <div className="text-9xl">🌮</div>
+            )}
           </div>
           <div className="p-6">
             <div className="flex items-start justify-between mb-3">
@@ -247,7 +268,7 @@ export default function ProductDetailPage() {
 
             <div className="space-y-2">
               {group.options.map((option) => {
-                const isSelected = selectedOptions[group.id]?.includes(option.id);
+                const isSelected = getSelectedIds(group.id).includes(option.id);
                 const precioAdicional = option.precioAdicional || 0;
                 return (
                   <button

@@ -29,8 +29,19 @@ async function getUser() {
   }
 }
 
+interface Ingredient {
+  id: string;
+  name: string;
+  unit: string;
+  stock: number;
+  minStock: number;
+  cost: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Obtener todos los ingredientes
-async function getIngredients() {
+async function getIngredients(): Promise<Ingredient[]> {
   const ingredients = await prisma.ingredient.findMany({
     orderBy: { name: 'asc' },
   });
@@ -39,26 +50,15 @@ async function getIngredients() {
 
 // Estadísticas rápidas
 async function getStats() {
-  const [totalIngredients, lowStock, totalValue] = await Promise.all([
-    prisma.ingredient.count(),
-    prisma.ingredient.count({
-      where: {
-        stock: {
-          lte: prisma.ingredient.fields.minStock,
-        },
-      },
-    }),
-    prisma.ingredient.aggregate({
-      _sum: {
-        cost: true,
-      },
-    }),
-  ]);
+  const ingredients: Ingredient[] = await prisma.ingredient.findMany();
+  const totalIngredients = ingredients.length;
+  const lowStock = ingredients.filter((ingredient) => ingredient.stock <= ingredient.minStock).length;
+  const totalValue = ingredients.reduce((sum, ingredient) => sum + ingredient.stock * ingredient.cost, 0);
 
   return {
     totalIngredients,
     lowStock,
-    totalValue: totalValue._sum.cost || 0,
+    totalValue,
   };
 }
 

@@ -14,10 +14,18 @@ import { authenticateRequest, authorizeRole } from '@/middleware/auth';
 import { successResponse, errorResponse, handleApiError } from '@/lib/api-response';
 
 // Schema de validación para crear/actualizar categoría
+const imageUrlSchema = z.string().optional().nullable().refine((value) => {
+  if (!value) return true;
+  if (/^https?:\/\//.test(value)) return true;
+  if (/^[\w-]+\.(png|jpe?g|webp|svg)$/.test(value)) return true;
+  if (/^\p{Emoji}+$/u.test(value)) return true;
+  return false;
+}, 'URL de imagen inválida');
+
 const categorySchema = z.object({
   name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
   description: z.string().optional(),
-  imageUrl: z.string().url('URL de imagen inválida').optional(),
+  imageUrl: imageUrlSchema,
   order: z.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
 });

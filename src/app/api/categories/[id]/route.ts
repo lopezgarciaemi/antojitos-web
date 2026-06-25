@@ -13,10 +13,18 @@ import { authenticateRequest, authorizeRole } from '@/middleware/auth';
 import { successResponse, errorResponse, handleApiError } from '@/lib/api-response';
 
 // Schema de validación para actualizar
+const imageUrlSchema = z.string().optional().nullable().refine((value) => {
+  if (!value) return true;
+  if (/^https?:\/\//.test(value)) return true;
+  if (/^[\w-]+\.(png|jpe?g|webp|svg)$/.test(value)) return true;
+  if (/^\p{Emoji}+$/u.test(value)) return true;
+  return false;
+}, 'URL de imagen inválida');
+
 const updateCategorySchema = z.object({
   name: z.string().min(2).optional(),
   description: z.string().optional(),
-  imageUrl: z.string().url().optional().nullable(),
+  imageUrl: imageUrlSchema,
   order: z.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
 });

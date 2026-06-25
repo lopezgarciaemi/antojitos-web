@@ -83,7 +83,7 @@ export default function CheckoutPage() {
       console.log('[CHECKOUT] Direcciones cargadas:', result.data.length);
       setAddresses(result.data);
       // Seleccionar dirección por defecto
-      const defaultAddr = result.data.find(a => a.isDefault);
+      const defaultAddr = result.data.find((a: Address) => a.isDefault);
       if (defaultAddr) {
         setSelectedAddressId(defaultAddr.id);
       } else if (result.data.length > 0) {

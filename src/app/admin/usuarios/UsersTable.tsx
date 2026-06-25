@@ -9,7 +9,7 @@ import { updateUserRole } from '@/lib/actions/kitchen';
 
 interface User {
   id: string;
-  name: string;
+  name: string | null;
   email: string;
   role: string;
   createdAt: Date;
@@ -110,10 +110,10 @@ export default function UsersTable({ initialUsers, currentUserId }: UsersTablePr
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
-                        {user.name.charAt(0).toUpperCase()}
+                        {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                       </div>
                       <span className="font-medium text-gray-800">
-                        {user.name}
+                        {user.name || 'Usuario'}
                         {isCurrentUser && (
                           <span className="ml-2 text-xs text-orange-500">(Tú)</span>
                         )}

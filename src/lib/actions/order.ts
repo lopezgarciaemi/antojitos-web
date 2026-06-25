@@ -7,6 +7,7 @@
 
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
 
@@ -126,6 +127,20 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderResult>
 
     // Obtener productos con sus recetas
     const productIds = items.map(item => item.productId);
+    type ProductWithRecipes = {
+      id: string;
+      name: string;
+      basePrice: number;
+      recipes: {
+        ingredientId: string;
+        quantity: number;
+        ingredient: {
+          name: string;
+          stock: number;
+          unit: string;
+        };
+      }[];
+    };
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
       include: {
@@ -135,7 +150,7 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderResult>
           },
         },
       },
-    });
+    }) as ProductWithRecipes[];
 
     // Verificar que todos los productos existen
     if (products.length !== productIds.length) {
@@ -152,7 +167,7 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderResult>
     }> = new Map();
 
     for (const item of items) {
-      const product = products.find(p => p.id === item.productId);
+      const product = products.find((p) => p.id === item.productId);
       if (!product) continue;
 
       for (const recipe of product.recipes) {
@@ -269,7 +284,7 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderResult>
     });
 
     // TRANSACCIÓN: Crear orden y descontar stock
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // 1. Crear la orden (estado PAGADA para que aparezca en cocina)
       const order = await tx.order.create({
         data: {

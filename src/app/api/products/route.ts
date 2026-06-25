@@ -12,11 +12,19 @@ import { authenticateRequest, authorizeRole } from '@/middleware/auth';
 import { successResponse, errorResponse, handleApiError } from '@/lib/api-response';
 
 // Schema de validación para crear producto
+const imageUrlSchema = z.string().optional().nullable().refine((value) => {
+  if (!value) return true;
+  if (/^https?:\/\//.test(value)) return true;
+  if (/^[\w-]+\.(png|jpe?g|webp|svg)$/.test(value)) return true;
+  if (/^\p{Emoji}+$/u.test(value)) return true;
+  return false;
+}, 'URL de imagen inválida');
+
 const createProductSchema = z.object({
   name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
   description: z.string().optional(),
   basePrice: z.number().positive('El precio debe ser mayor a 0'),
-  imageUrl: z.string().url('URL de imagen inválida').optional(),
+  imageUrl: imageUrlSchema,
   categoryId: z.string().uuid('ID de categoría inválido'),
   isActive: z.boolean().optional(),
   isAvailable: z.boolean().optional(),
@@ -92,7 +100,7 @@ export async function GET(request: NextRequest) {
       nombre: p.name,
       descripcion: p.description || '',
       precioBase: p.basePrice,
-      imagen: p.imageUrl || '🌮',
+      imagen: p.imageUrl || null,
       disponible: p.isAvailable,
       categoria: p.category ? {
         id: p.category.id,

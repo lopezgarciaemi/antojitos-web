@@ -10,11 +10,11 @@ interface Category {
 }
 
 interface Product {
-  id: number;
+  id: string;
   nombre: string;
   descripcion: string;
   precioBase: number;
-  imagen: string;
+  imagen: string | null;
   disponible: boolean;
   categoria?: {
     nombre: string;
@@ -233,16 +233,29 @@ export default function ProductosPage() {
                 className="bg-white border border-gray-200 rounded-xl hover:border-orange-500 transition cursor-pointer overflow-hidden shadow-sm"
               >
                 <div className="h-48 bg-gray-100 flex items-center justify-center overflow-hidden">
-                  <img
-                    src={`/images/productos/${product.imagen}`}
-                    alt={product.nombre}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // Fallback a emoji si no existe la imagen
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.parentElement!.innerHTML = '<span class="text-6xl">🌮</span>';
-                    }}
-                  />
+                  {product.imagen && (product.imagen.startsWith('http://') || product.imagen.startsWith('https://')) ? (
+                    <img
+                      src={product.imagen}
+                      alt={product.nombre}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement!.innerHTML = '<span class="text-6xl">🌮</span>';
+                      }}
+                    />
+                  ) : product.imagen && product.imagen.includes('.') ? (
+                    <img
+                      src={`/images/productos/${product.imagen}`}
+                      alt={product.nombre}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement!.innerHTML = '<span class="text-6xl">🌮</span>';
+                      }}
+                    />
+                  ) : (
+                    <div className="text-6xl">🌮</div>
+                  )}
                 </div>
                 <div className="p-4">
                   <div className="flex items-start justify-between mb-2">

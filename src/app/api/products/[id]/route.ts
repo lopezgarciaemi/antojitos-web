@@ -13,11 +13,19 @@ import { authenticateRequest, authorizeRole } from '@/middleware/auth';
 import { successResponse, errorResponse, handleApiError } from '@/lib/api-response';
 
 // Schema de validación para actualizar
+const imageUrlSchema = z.string().optional().nullable().refine((value) => {
+  if (!value) return true;
+  if (/^https?:\/\//.test(value)) return true;
+  if (/^[\w-]+\.(png|jpe?g|webp|svg)$/.test(value)) return true;
+  if (/^\p{Emoji}+$/u.test(value)) return true;
+  return false;
+}, 'URL de imagen inválida');
+
 const updateProductSchema = z.object({
   name: z.string().min(2).optional(),
   description: z.string().optional().nullable(),
   basePrice: z.number().positive().optional(),
-  imageUrl: z.string().url().optional().nullable(),
+  imageUrl: imageUrlSchema,
   categoryId: z.string().uuid().optional(),
   isActive: z.boolean().optional(),
   isAvailable: z.boolean().optional(),
@@ -72,7 +80,7 @@ export async function GET(
       nombre: product.name,
       descripcion: product.description || '',
       precioBase: product.basePrice,
-      imagen: product.imageUrl || '🌮',
+      imagen: product.imageUrl || null,
       disponible: product.isAvailable,
       categoria: product.category ? {
         id: product.category.id,

@@ -29,8 +29,16 @@ async function getUser() {
   }
 }
 
+interface User {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+  createdAt: Date;
+}
+
 // Obtener todos los usuarios
-async function getUsers() {
+async function getUsers(): Promise<User[]> {
   const users = await prisma.user.findMany({
     select: {
       id: true,
